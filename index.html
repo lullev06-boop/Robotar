@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="300">
+<title>AI-kommittén</title>
+<style>
+:root{color-scheme:light;--bg:#f4f3f0;--yta:#fcfcfb;--kant:#e4e2dc;--text:#0b0b0b;--text2:#52514e;--text3:#86857f;
+--linje:#2a78d6;--bra:#0ca30c;--bra-text:#006300;--dalig:#d03b3b;--dalig-text:#b42d2d;--neutral:#f0efec;--grid:#e9e7e1}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#121211;--yta:#1a1a19;--kant:#2c2c2a;
+--text:#f0efec;--text2:#c3c2b7;--text3:#8d8c85;--linje:#3987e5;--bra:#0ca30c;--bra-text:#4cc24c;--dalig:#d03b3b;--dalig-text:#ef7b7b;--neutral:#383835;--grid:#2a2a28}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#121211;--yta:#1a1a19;--kant:#2c2c2a;--text:#f0efec;--text2:#c3c2b7;--text3:#8d8c85;
+--linje:#3987e5;--bra:#0ca30c;--bra-text:#4cc24c;--dalig:#d03b3b;--dalig-text:#ef7b7b;--neutral:#383835;--grid:#2a2a28}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.sida{max-width:1100px;margin:0 auto;padding:24px 16px 48px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;margin-bottom:16px}
+h1{font-size:22px;font-weight:600;margin:0}
+.upd{color:var(--text3);font-size:13px}
+.filter{display:flex;gap:6px;margin:0 0 16px}
+.filter button{font:inherit;font-size:14px;padding:6px 14px;border-radius:999px;border:1px solid var(--kant);background:var(--yta);color:var(--text2);cursor:pointer}
+.filter button[aria-pressed="true"]{background:var(--text);color:var(--yta);border-color:var(--text)}
+.kort{background:var(--yta);border:1px solid var(--kant);border-radius:12px;padding:16px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.tile .etikett{color:var(--text2);font-size:13px}
+.tile .varde{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2;margin-top:4px}
+.tile .under{color:var(--text3);font-size:12px;margin-top:2px}
+.plus{color:var(--bra-text)} .minus{color:var(--dalig-text)}
+h2{font-size:16px;font-weight:600;margin:0 0 10px}
+.diagram{position:relative;margin-bottom:16px}
+.diagram svg{display:block;width:100%;height:auto}
+.tips{position:absolute;pointer-events:none;background:var(--text);color:var(--yta);font-size:12px;padding:6px 8px;border-radius:6px;white-space:nowrap;opacity:0;transition:opacity .1s}
+.tom{color:var(--text3);font-size:14px;padding:24px 0;text-align:center}
+.tabell{overflow-x:auto;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th{text-align:left;color:var(--text2);font-weight:500;font-size:12px;padding:6px 8px;border-bottom:1px solid var(--kant);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid var(--grid);white-space:nowrap}
+td.num,th.num{text-align:right}
+.chip{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--neutral);color:var(--text2)}
+.mark{font-weight:600}
+.fot{color:var(--text3);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="sida">
+<header><h1>AI-kommittén — trades</h1><span class="upd" id="upd"></span></header>
+<div class="filter" role="group" aria-label="Typ av trade">
+  <button data-f="alla" aria-pressed="true">Alla</button>
+  <button data-f="dag" aria-pressed="false">⚡ Daytrade</button>
+  <button data-f="lang" aria-pressed="false">📈 Långsiktig</button>
+</div>
+<div class="tiles" id="tiles"></div>
+<div class="kort diagram"><h2>Resultat över tid (summa R)</h2><div id="kurva"></div><div class="tips" id="tips"></div></div>
+<div class="kort tabell"><h2>Aktiva trades</h2><div id="aktiva"></div></div>
+<div class="kort tabell"><h2>Avslutade trades</h2><div id="avslutade"></div></div>
+<p class="fot">R = risken per trade (avståndet till stop). +1 R = du vann lika mycket som du riskerade. Avslutad = mål 1 eller stop nåddes, eller tiden tog slut.
+Om stop och mål nåddes samma stapel räknas stop. Sidan laddas om var 5:e minut och uppdateras vid varje körning. Ej finansiell rådgivning.</p>
+</div>
+<script>
+const D = {"trades": [{"tid": "2026-11-11 16:04", "typ": "lang", "namn": "OMXS30", "ticker": "^OMX", "riktning": "BULL", "beslut": "KÖP", "ingang": 3354.697, "stop": 3287.7708, "mal1": 3466.2407, "mal2": 3533.1669, "havstang": "x3", "slut": "2026-11-18 16:04", "status": "aktiv", "utfall": "", "R": 0.08, "pl_pct": 0.16, "nu_pris": 3360.010986328125, "avslut_tid": null, "hav": 1, "cert_pct": 0.2}, {"tid": "2026-11-11 16:04", "typ": "lang", "namn": "DAX", "ticker": "^GDAXI", "riktning": "BULL", "beslut": "KÖP", "ingang": 26539.3203, "stop": 25950.1474, "mal1": 27521.2752, "mal2": 28110.4481, "havstang": "x3", "slut": "2026-11-18 16:04", "status": "aktiv", "utfall": "", "R": 0.21, "pl_pct": 0.47, "nu_pris": 26662.76953125, "avslut_tid": null, "hav": 1, "cert_pct": 0.5}, {"tid": "2026-11-11 16:04", "typ": "lang", "namn": "Guld", "ticker": "GC=F", "riktning": "BEAR", "beslut": "SÄLJ", "ingang": 4021.7, "stop": 4157.4324, "mal1": 3795.4794, "mal2": 3659.747, "havstang": "x3", "slut": "2026-11-18 16:04", "status": "aktiv", "utfall": "", "R": 0.22, "pl_pct": 0.74, "nu_pris": 3992.10009765625, "avslut_tid": null, "hav": 1, "cert_pct": 0.7}, {"tid": "2026-11-11 16:11", "typ": "lang", "namn": "OMXS30", "ticker": "^OMX", "riktning": "BULL", "beslut": "KÖP", "ingang": 3353.3147, "stop": 3286.4161, "mal1": 3464.8124, "mal2": 3531.711, "havstang": "x5", "slut": "2026-11-18 16:11", "status": "aktiv", "utfall": "", "R": 0.1, "pl_pct": 0.2, "nu_pris": 3360.010986328125, "avslut_tid": null, "hav": 1, "cert_pct": 0.2}, {"tid": "2026-11-11 16:11", "typ": "lang", "namn": "DAX", "ticker": "^GDAXI", "riktning": "BULL", "beslut": "KÖP", "ingang": 26585.8594, "stop": 25995.6533, "mal1": 27569.5362, "mal2": 28159.7423, "havstang": "x5", "slut": "2026-11-18 16:11", "status": "aktiv", "utfall": "", "R": 0.13, "pl_pct": 0.29, "nu_pris": 26662.76953125, "avslut_tid": null, "hav": 1, "cert_pct": 0.3}, {"tid": "2026-11-11 16:11", "typ": "lang", "namn": "Guld", "ticker": "GC=F", "riktning": "BEAR", "beslut": "SÄLJ", "ingang": 4021.2, "stop": 4156.9155, "mal1": 3795.0075, "mal2": 3659.292, "havstang": "x3", "slut": "2026-11-18 16:11", "status": "aktiv", "utfall": "", "R": 0.21, "pl_pct": 0.72, "nu_pris": 3992.10009765625, "avslut_tid": null, "hav": 1, "cert_pct": 0.7}, {"tid": "2026-11-11 16:12", "typ": "lang", "namn": "OMXS30", "ticker": "^OMX", "riktning": "BULL", "beslut": "KÖP", "ingang": 3354.4526, "stop": 3287.5313, "mal1": 3465.9881, "mal2": 3532.9095, "havstang": "x5", "slut": "2026-11-18 16:12", "status": "aktiv", "utfall": "", "R": 0.08, "pl_pct": 0.17, "nu_pris": 3360.010986328125, "avslut_tid": null, "hav": 1, "cert_pct": 0.2}, {"tid": "2026-11-11 16:12", "typ": "lang", "namn": "DAX", "ticker": "^GDAXI", "riktning": "BULL", "beslut": "KÖP", "ingang": 26595.5703, "stop": 26005.1486, "mal1": 27579.6064, "mal2": 28170.0281, "havstang": "x5", "slut": "2026-11-18 16:12", "status": "aktiv", "utfall": "", "R": 0.11, "pl_pct": 0.25, "nu_pris": 26662.76953125, "avslut_tid": null, "hav": 1, "cert_pct": 0.2}, {"tid": "2026-11-11 16:12", "typ": "lang", "namn": "Guld", "ticker": "GC=F", "riktning": "BEAR", "beslut": "SÄLJ", "ingang": 4021.1001, "stop": 4156.8122, "mal1": 3794.9132, "mal2": 3659.2011, "havstang": "x3", "slut": "2026-11-18 16:12", "status": "aktiv", "utfall": "", "R": 0.21, "pl_pct": 0.72, "nu_pris": 3992.10009765625, "avslut_tid": null, "hav": 1, "cert_pct": 0.7}, {"tid": "2026-11-11 16:12", "typ": "lang", "namn": "OMXS30", "ticker": "^OMX", "riktning": "BULL", "beslut": "KÖP", "ingang": 3354.3723, "stop": 3287.4526, "mal1": 3465.9052, "mal2": 3532.8249, "havstang": "x5", "slut": "2026-11-18 16:12", "status": "aktiv", "utfall": "", "R": 0.08, "pl_pct": 0.17, "nu_pris": 3360.010986328125, "avslut_tid": null, "hav": 1, "cert_pct": 0.2}, {"tid": "2026-11-11 16:12", "typ": "lang", "namn": "DAX", "ticker": "^GDAXI", "riktning": "BULL", "beslut": "KÖP", "ingang": 26599.6699, "stop": 26009.1572, "mal1": 27583.8577, "mal2": 28174.3704, "havstang": "x5", "slut": "2026-11-18 16:12", "status": "aktiv", "utfall": "", "R": 0.11, "pl_pct": 0.24, "nu_pris": 26662.76953125, "avslut_tid": null, "hav": 1, "cert_pct": 0.2}, {"tid": "2026-11-11 16:12", "typ": "lang", "namn": "Guld", "ticker": "GC=F", "riktning": "BEAR", "beslut": "SÄLJ", "ingang": 4021.1001, "stop": 4156.8122, "mal1": 3794.9132, "mal2": 3659.2011, "havstang": "x3", "slut": "2026-11-18 16:12", "status": "aktiv", "utfall": "", "R": 0.21, "pl_pct": 0.72, "nu_pris": 3992.10009765625, "avslut_tid": null, "hav": 1, "cert_pct": 0.7}, {"tid": "2026-11-11 16:18", "typ": "lang", "namn": "OMXS30", "ticker": "^OMX", "riktning": "BULL", "beslut": "KÖP", "ingang": 3354.7949, "stop": 3287.8667, "mal1": 3466.3418, "mal2": 3533.27, "havstang": "x5", "slut": "2026-11-18 16:18", "status": "aktiv", "utfall": "", "R": 0.08, "pl_pct": 0.16, "nu_pris": 3360.010986328125, "avslut_tid": null, "hav": 1, "cert_pct": 0.2}, {"tid": "2026-11-11 16:18", "typ": "lang", "namn": "DAX", "ticker": "^GDAXI", "riktning": "BULL", "beslut": "KÖP", "ingang": 26592.1797, "stop": 26001.8333, "mal1": 27576.0903, "mal2": 28166.4367, "havstang": "x5", "slut": "2026-11-18 16:18", "status": "aktiv", "utfall": "", "R": 0.12, "pl_pct": 0.27, "nu_pris": 26662.76953125, "avslut_tid": null, "hav": 1, "cert_pct": 0.3}, {"tid": "2026-11-11 16:18", "typ": "lang", "namn": "Guld", "ticker": "GC=F", "riktning": "BEAR", "beslut": "SÄLJ", "ingang": 4024.3, "stop": 4160.1201, "mal1": 3797.9331, "mal2": 3662.113, "havstang": "x3", "slut": "2026-11-18 16:18", "status": "aktiv", "utfall": "", "R": 0.24, "pl_pct": 0.8, "nu_pris": 3992.10009765625, "avslut_tid": null, "hav": 1, "cert_pct": 0.8}, {"tid": "2026-11-11 16:28", "typ": "lang", "namn": "OMXS30", "ticker": "^OMX", "riktning": "BULL", "beslut": "KÖP", "ingang": 3354.8877, "stop": 3265.6477, "mal1": 3488.7477, "mal2": 3577.9877, "havstang": "ingen", "slut": "2026-12-09 22:00", "status": "aktiv", "utfall": "", "R": 0.06, "pl_pct": 0.15, "nu_pris": 3360.010986328125, "avslut_tid": null, "hav": 1, "cert_pct": 0.1}, {"tid": "2026-11-11 16:28", "typ": "lang", "namn": "DAX", "ticker": "^GDAXI", "riktning": "BULL", "beslut": "KÖP", "ingang": 26588.7598, "stop": 25801.7325, "mal1": 27769.3007, "mal2": 28556.328, "havstang": "ingen", "slut": "2026-12-09 22:00", "status": "aktiv", "utfall": "", "R": 0.09, "pl_pct": 0.28, "nu_pris": 26662.76953125, "avslut_tid": null, "hav": 1, "cert_pct": 0.3}, {"tid": "2026-11-11 16:28", "typ": "dag", "namn": "Bitcoin", "ticker": "BTC-USD", "riktning": "BEAR", "beslut": "SÄLJ", "ingang": 73490.5938, "stop": 74070.4346, "mal1": 72620.8326, "mal2": 72137.632, "havstang": "x5", "slut": "2026-11-11 21:45", "status": "avslutad", "utfall": "stop", "R": -1.0, "pl_pct": -0.79, "nu_pris": 74070.4346, "avslut_tid": "2026-11-11 17:00", "hav": 5, "cert_pct": -4.0}, {"tid": "2026-11-11 16:28", "typ": "dag", "namn": "Guld", "ticker": "GC=F", "riktning": "BEAR", "beslut": "SÄLJ", "ingang": 4022.0, "stop": 4039.375, "mal1": 3995.9374, "mal2": 3981.4582, "havstang": "x10", "slut": "2026-11-11 21:45", "status": "avslutad", "utfall": "mål 1", "R": 1.5, "pl_pct": 0.65, "nu_pris": 3995.9374, "avslut_tid": "2026-11-11 19:00", "hav": 10, "cert_pct": 6.5}, {"tid": "2026-11-11 16:28", "typ": "dag", "namn": "Apple", "ticker": "AAPL", "riktning": "BULL", "beslut": "KÖP", "ingang": 353.5003, "stop": 349.9476, "mal1": 358.8293, "mal2": 361.7899, "havstang": "x5", "slut": "2026-11-11 21:45", "status": "avslutad", "utfall": "tiden ute", "R": 0.64, "pl_pct": 0.65, "nu_pris": 355.7900085449219, "avslut_tid": "2026-11-11 21:30", "hav": 5, "cert_pct": 3.2}, {"tid": "2026-11-11 16:33", "typ": "dag", "namn": "Microsoft", "ticker": "MSFT", "riktning": "BEAR", "beslut": "SÄLJ", "ingang": 518.61, "stop": 527.346, "mal1": 505.506, "mal2": 498.226, "havstang": "x3", "slut": "2026-11-11 21:45", "status": "avslutad", "utfall": "tiden ute", "R": -0.3, "pl_pct": -0.5, "nu_pris": 521.2100219726562, "avslut_tid": "2026-11-11 21:30", "hav": 3, "cert_pct": -1.5}, {"tid": "2026-11-11 17:10", "typ": "dag", "namn": "AMD", "ticker": "AMD", "riktning": "BULL", "beslut": "KÖP", "ingang": 549.57, "stop": 529.9091, "mal1": 579.0613, "mal2": 595.4454, "havstang": "x2", "slut": "2026-11-11 21:45", "status": "avslutad", "utfall": "tiden ute", "R": 0.17, "pl_pct": 0.62, "nu_pris": 552.9600219726562, "avslut_tid": "2026-11-11 21:30", "hav": 2, "cert_pct": 1.2}], "uppdaterad": "2026-11-11 22:33", "risk_pct": 1.0};
+const $ = id => document.getElementById(id);
+const fmt = (x, d=1) => x == null ? "–" : x.toLocaleString("sv-SE", {minimumFractionDigits:d, maximumFractionDigits:d});
+const tecken = (x, d=1, suf="") => x == null ? "–" : (x > 0 ? "+" : x < 0 ? "−" : "") + fmt(Math.abs(x), d) + suf;
+const klass = x => x == null ? "" : x > 0 ? "plus" : x < 0 ? "minus" : "";
+const pris = x => x == null ? "–" : x >= 1000 ? fmt(x,0) : x >= 10 ? fmt(x,1) : fmt(x,2);
+const typNamn = t => t === "dag" ? "⚡ Daytrade" : "📈 Lång";
+const utfallText = u => u === "mål 1" ? "✅ Mål 1" : u === "stop" ? "❌ Stop" : u === "tiden ute" ? "⏹ Tiden ute" : u;
+let filter = "alla", senaste = [];
+window.addEventListener("resize", () => ritaKurva(senaste));
+$("upd").textContent = "Uppdaterad " + D.uppdaterad;
+
+function rita() {
+  const T = D.trades.filter(t => filter === "alla" || t.typ === filter);
+  const akt = T.filter(t => t.status === "aktiv");
+  const avs = T.filter(t => t.status === "avslutad").sort((a,b) => (a.avslut_tid||"").localeCompare(b.avslut_tid||""));
+  const vinst = avs.filter(t => t.R > 0).length;
+  const sumR = avs.reduce((s,t) => s + (t.R||0), 0);
+  const snittR = avs.length ? sumR / avs.length : null;
+  const oppetR = akt.reduce((s,t) => s + (t.R||0), 0);
+  const tiles = [
+    ["Signaler totalt", T.length, `${akt.length} ${akt.length===1?"aktiv":"aktiva"} · ${avs.length} avslutade`, ""],
+    ["Vinstprocent", avs.length ? fmt(vinst/avs.length*100,0) + " %" : "–", `${vinst} vinster · ${avs.length - vinst} förluster`, ""],
+    ["Resultat avslutade", tecken(sumR,1," R"), `snitt ${tecken(snittR,2," R")} per trade`, klass(sumR)],
+    ["Om 1 % risk per trade", tecken(sumR * D.risk_pct,1," %"), "på kontot, avslutade trades", klass(sumR)],
+    ["Öppet just nu", tecken(oppetR,1," R"), `${akt.length} ${akt.length===1?"aktiv trade":"aktiva trades"}`, klass(oppetR)],
+  ];
+  $("tiles").innerHTML = tiles.map(([e,v,u,k]) =>
+    `<div class="kort tile"><div class="etikett">${e}</div><div class="varde ${k}">${v}</div><div class="under">${u}</div></div>`).join("");
+  ritaKurva(avs);
+  $("aktiva").innerHTML = akt.length ? tabell(akt, true) : '<div class="tom">Inga aktiva trades just nu.</div>';
+  $("avslutade").innerHTML = avs.length ? tabell(avs.slice().reverse(), false) : '<div class="tom">Inga avslutade trades än — kom tillbaka om några dagar.</div>';
+}
+
+function tabell(rader, aktiv) {
+  const huvud = aktiv
+    ? ["Marknad","Riktning","R","Resultat","I certifikat","Ingång","Nu","Stop","Mål 1","Typ","Signal","Slutar"]
+    : ["Marknad","Riktning","Utfall","R","Resultat","I certifikat","Ingång","Ut","Typ","Avslutad"];
+  const num = new Set(["Ingång","Nu","Ut","Stop","Mål 1","Resultat","I certifikat","R"]);
+  const th = huvud.map(h => `<th class="${num.has(h)?"num":""}">${h}</th>`).join("");
+  const td = rader.map(t => {
+    const rikt = `<span class="chip">${t.riktning === "BULL" ? "▲ BULL" : "▼ BEAR"}</span>`;
+    const cert = t.typ === "dag" ? `<span class="${klass(t.cert_pct)}">${tecken(t.cert_pct,1," %")}</span> <span class="upd">x${t.hav}</span>` : "–";
+    const celler = aktiv
+      ? [t.namn, rikt, `<span class="mark ${klass(t.R)}">${tecken(t.R,2)}</span>`,
+         `<span class="${klass(t.pl_pct)}">${tecken(t.pl_pct,2," %")}</span>`, cert,
+         pris(t.ingang), pris(t.nu_pris), pris(t.stop), pris(t.mal1), typNamn(t.typ), t.tid, t.slut]
+      : [t.namn, rikt, utfallText(t.utfall), `<span class="mark ${klass(t.R)}">${tecken(t.R,2)}</span>`,
+         `<span class="${klass(t.pl_pct)}">${tecken(t.pl_pct,2," %")}</span>`, cert,
+         pris(t.ingang), pris(t.nu_pris), typNamn(t.typ), t.avslut_tid];
+    return "<tr>" + celler.map((c,i) => `<td class="${num.has(huvud[i])?"num":""}">${c}</td>`).join("") + "</tr>";
+  }).join("");
+  return `<table><thead><tr>${th}</tr></thead><tbody>${td}</tbody></table>`;
+}
+
+function ritaKurva(avs) {
+  const box = $("kurva");
+  senaste = avs;
+  if (avs.length < 2) { box.innerHTML = '<div class="tom">Kurvan visas när minst två trades är avslutade.</div>'; return; }
+  let s = 0; const pts = [{x:0,y:0,t:null}].concat(avs.map((t,i) => (s += t.R||0, {x:i+1,y:s,t})));
+  const W = Math.max(300, box.clientWidth || 1000), H = 220, pl = 44, pr = 12, pt = 12, pb = 26;
+  const ys = pts.map(p => p.y), lo = Math.min(0, ...ys), hi = Math.max(0, ...ys), sp = (hi - lo) || 1;
+  const X = x => pl + x / (pts.length - 1) * (W - pl - pr);
+  const Y = y => pt + (hi - y) / sp * (H - pt - pb);
+  const steg = sp > 20 ? 10 : sp > 8 ? 4 : sp > 4 ? 2 : 1;
+  let grid = "";
+  for (let v = Math.ceil(lo/steg)*steg; v <= hi; v += steg)
+    grid += `<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)" stroke-width="1"/>` +
+            `<text x="${pl-8}" y="${Y(v)+4}" text-anchor="end" font-size="12" fill="var(--text3)">${v>0?"+":""}${v} R</text>`;
+  const noll = `<line x1="${pl}" x2="${W-pr}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--text3)" stroke-width="1"/>`;
+  const d = pts.map((p,i) => (i ? "L" : "M") + X(p.x).toFixed(1) + " " + Y(p.y).toFixed(1)).join(" ");
+  const sista = pts[pts.length-1];
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Summa R över avslutade trades">
+    ${grid}${noll}<path d="${d}" fill="none" stroke="var(--linje)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    <circle id="punkt" r="5" fill="var(--linje)" stroke="var(--yta)" stroke-width="2" style="display:none"/>
+    <text x="${W-pr}" y="${H-6}" text-anchor="end" font-size="12" fill="var(--text3)">${avs.length} avslutade trades →</text></svg>`;
+  const svg = box.querySelector("svg"), tips = $("tips"), punkt = svg.querySelector("#punkt");
+  svg.addEventListener("mousemove", e => {
+    const r = svg.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width * W;
+    const i = Math.max(1, Math.min(pts.length-1, Math.round((fx - pl) / (W - pl - pr) * (pts.length - 1))));
+    const p = pts[i];
+    punkt.setAttribute("cx", X(p.x)); punkt.setAttribute("cy", Y(p.y)); punkt.style.display = "";
+    tips.innerHTML = `${p.t.namn} ${p.t.riktning} · ${utfallText(p.t.utfall)} · ${tecken(p.t.R,2," R")}<br>Summa: ${tecken(p.y,2," R")}`;
+    const px = X(p.x) / W * r.width, py = Y(p.y) / H * r.height;
+    tips.style.left = Math.min(px + 12, r.width - 220) + "px"; tips.style.top = (py + 30) + "px"; tips.style.opacity = 1;
+  });
+  svg.addEventListener("mouseleave", () => { tips.style.opacity = 0; punkt.style.display = "none"; });
+}
+
+document.querySelectorAll(".filter button").forEach(b => b.addEventListener("click", () => {
+  filter = b.dataset.f;
+  document.querySelectorAll(".filter button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  rita();
+}));
+rita();
+</script>
+</body>
+</html>
